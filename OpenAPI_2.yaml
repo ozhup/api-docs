@@ -1,0 +1,313 @@
+openapi: 3.0.3
+info:
+  title: Open-Source APIs Specification
+  version: 1.0.0
+  description: >
+    Sample OpenAPI 3.0.3 specification combining endpoints from three public/open-source APIs
+    (Open-Meteo, REST Countries, and Open Library) with 401, 403, 404, 500, and 502
+    error responses on every operation.
+
+servers:
+  - url: https://api.open-meteo.com/v1
+    description: Open-Meteo Weather Forecast API
+  - url: https://restcountries.com/v3.1
+    description: REST Countries API
+  - url: https://openlibrary.org
+    description: Open Library Books API
+
+tags:
+  - name: Open-Meteo
+    description: Weather forecast endpoints (https://api.open-meteo.com/v1)
+  - name: REST Countries
+    description: Country lookup endpoints (https://restcountries.com/v3.1)
+  - name: Open Library
+    description: Open book catalog lookup endpoints (https://openlibrary.org)
+
+paths:
+  /forecast:
+    get:
+      tags:
+        - Open-Meteo
+      summary: Get weather forecast by coordinates (Open-Meteo)
+      operationId: getWeatherForecast
+      servers:
+        - url: https://api.open-meteo.com/v1
+      parameters:
+        - name: latitude
+          in: query
+          required: false
+          description: WGS84 latitude coordinate
+          schema:
+            type: number
+            format: float
+            example: 49.4216
+        - name: longitude
+          in: query
+          required: false
+          description: WGS84 longitude coordinate
+          schema:
+            type: number
+            format: float
+            example: 26.9965
+        - name: hourly
+          in: query
+          required: false
+          description: Comma-separated hourly weather variables
+          schema:
+            type: string
+            example: temperature_2m,precipitation
+        - name: timezone
+          in: query
+          required: false
+          description: IANA timezone name or auto
+          schema:
+            type: string
+            example: Europe/Kyiv
+      responses:
+        "200":
+          description: Weather forecast returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeatherForecastResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "502":
+          $ref: "#/components/responses/BadGatewayError"
+
+  /name/{name}:
+    parameters:
+      - name: name
+        in: path
+        required: true
+        description: Common or official country name
+        schema:
+          type: string
+          example: ukraine
+    get:
+      tags:
+        - REST Countries
+      summary: Search countries by name (REST Countries)
+      operationId: getCountriesByName
+      servers:
+        - url: https://restcountries.com/v3.1
+      parameters:
+        - name: fields
+          in: query
+          required: false
+          description: Comma-separated fields to return
+          schema:
+            type: string
+            example: name,capital,region
+      responses:
+        "200":
+          description: Matching countries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Country"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "502":
+          $ref: "#/components/responses/BadGatewayError"
+
+  /api/books:
+    get:
+      tags:
+        - Open Library
+      summary: Look up book metadata by identifiers (Open Library)
+      operationId: getBooksByIdentifiers
+      servers:
+        - url: https://openlibrary.org
+      parameters:
+        - name: bibkeys
+          in: query
+          required: false
+          description: Comma-separated book keys (e.g. ISBN:0451526538)
+          schema:
+            type: string
+            example: ISBN:0451526538
+        - name: format
+          in: query
+          required: false
+          description: Response format (json)
+          schema:
+            type: string
+            default: json
+            example: json
+        - name: jscmd
+          in: query
+          required: false
+          description: Detail level (viewapi or data)
+          schema:
+            type: string
+            example: data
+      responses:
+        "200":
+          description: Book metadata returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpenLibraryBooksResponse"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "502":
+          $ref: "#/components/responses/BadGatewayError"
+
+components:
+  responses:
+    UnauthorizedError:
+      description: Unauthorized (missing or invalid authentication credentials)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: 401
+            message: Unauthorized
+
+    ForbiddenError:
+      description: Forbidden (insufficient permissions)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: 403
+            message: Forbidden
+
+    NotFoundError:
+      description: Requested resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: 404
+            message: Not Found
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: 500
+            message: Internal Server Error
+
+    BadGatewayError:
+      description: Bad gateway or upstream service error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: 502
+            message: Bad Gateway
+
+  schemas:
+    ErrorResponse:
+      type: object
+      description: Standard error payload returned when a request fails
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          description: HTTP status error code
+          example: 404
+        message:
+          type: string
+          description: Human-readable error message
+          example: Not Found
+
+    WeatherForecastResponse:
+      type: object
+      description: Weather forecast response returned by Open-Meteo
+      properties:
+        latitude:
+          type: number
+          description: WGS84 latitude coordinate of the forecast location
+          example: 49.4216
+        longitude:
+          type: number
+          description: WGS84 longitude coordinate of the forecast location
+          example: 26.9965
+        timezone:
+          type: string
+          description: IANA timezone identifier for the returned forecast
+          example: Europe/Kyiv
+        hourly:
+          type: object
+          description: Hourly weather forecast arrays keyed by requested variable name
+          additionalProperties: true
+
+    Country:
+      type: object
+      description: Country metadata object returned by REST Countries
+      properties:
+        name:
+          type: object
+          description: Country naming details
+          properties:
+            common:
+              type: string
+              description: Common country name
+              example: Ukraine
+            official:
+              type: string
+              description: Official formal country name
+              example: Ukraine
+        capital:
+          type: array
+          description: List of capital cities
+          items:
+            type: string
+          example:
+            - Kyiv
+        region:
+          type: string
+          description: Geographic world region
+          example: Europe
+
+    OpenLibraryBooksResponse:
+      type: object
+      description: Map of requested book identifiers to their metadata records
+      additionalProperties:
+        type: object
+        description: Metadata record for a matched book identifier
+        properties:
+          title:
+            type: string
+            description: Title of the book
+            example: "1984"
+          info_url:
+            type: string
+            description: URL to the Open Library page for the book
+            example: https://openlibrary.org/books/OL24229771M/1984
+          preview_url:
+            type: string
+            description: URL to an online preview or digital edition of the book
+            example: https://archive.org/details/1984_201909
